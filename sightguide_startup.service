@@ -1,0 +1,15 @@
+[Unit]
+Description=Sight Guide Environment on Startup
+After=multi-user.target sound.target
+
+[Service]
+Type=simple
+User=edwartiu
+ExecStart=/usr/bin/python /home/edwartiu/SightGuide/main.py
+Environment=XDG_RUNTIME_DIR=/run/user/1000
+ExecStartPre=/bin/sleep 10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=default.target
