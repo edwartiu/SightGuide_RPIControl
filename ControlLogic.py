@@ -46,6 +46,9 @@ class ControlLogic:
         if not pi.connected:
             print("Error: pigpio daemon is not running.")
             exit(1)
+        for pin in motor_pins:
+            pi.set_PWM_frequency(pin, 1000)  # Set PWM frequency
+            pi.set_PWM_dutycycle(pin, 0)  # Start with 0% duty cycle
 
     def setup_button(self):
         self.state_button.when_pressed = self.toggle_state()
