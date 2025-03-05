@@ -71,8 +71,3 @@ class ControlLogic:
     def process_object_detection(self):
         pass
 
-
-if __name__ == "__main__":
-    control = ControlLogic()
-    while True:
-        pass
