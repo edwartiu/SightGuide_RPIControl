@@ -1,6 +1,6 @@
 import os
 from enum import Enum
-from OpenAI_Client import OpenAI
+from OpenAI_Client import OpenAIClient
 from picamera2 import Picamera2
 from gpiozero import Button
 
@@ -50,7 +50,7 @@ class ControlLogic:
     def __init__(self, project_path: str, state_button: int, visual_aid_button: int) -> None:
         self.state = ControlState.Idle
         self.path = project_path
-        self.openai = OpenAI()
+        self.openai = OpenAIClient()
         self.camera = PiCamera2()
         self.state_button = Button(state_button)
         self.visual_aid_button = Button(visual_aid_button)
