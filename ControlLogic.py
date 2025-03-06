@@ -36,11 +36,11 @@ class ControlState(Enum):
 class ControlLogic:
     def __init__(self, project_path: str, state_button: int, visual_aid_button: int) -> None:
         self.state = ControlState.Idle
-        self.path = PROJECT_PATH
+        self.path = project_path
         self.openai = OpenAI()
         self.camera = PiCamera2()
-        self.state_button = Button(STATE_BUTTON)
-        self.visual_aid_button = Button(VISUAL_AID_BUTTON)
+        self.state_button = Button(state_button)
+        self.visual_aid_button = Button(visual_aid_button)
 
         self.setup_button()
         if not pi.connected:
@@ -83,8 +83,22 @@ class ControlLogic:
 
     def process_general_visual_aid(self):
         self.camera.start_and_capture_file("image.jpg")
-        response = self.openai.general_visual_aid("image.jpg")
-        print(response)
+        image_response = self.openai.general_visual_aid("image.jpg")
+        if image_response is None:
+            # Process locally
+            with open("local_processing.txt", "w") as f_obj:
+                f_obj.write("Local")
+            while os.exists("/home/edwartiu/SightGuide/image.jpg"):
+                pass
+            with open("local_processing.txt", "w") as f_obj:
+                f_obj.write("Remote")
+            os.system("usr/bin/mpg123 " + self.path + "audio/speech.mp3")
+            self.set_state(ControlState.Idle)
+        else: 
+            speech_response = self.openai.generate_audio(image_response)
+            #if speech_response is None:
+            #    pass
+            
         os.system("usr/bin/mpg123 " + self.path + "audio/speech.mp3")
         self.set_state(ControlState.Idle)
 
@@ -120,8 +134,3 @@ class ControlLogic:
             time.sleep(0.05)
         pass
 
-
-if __name__ == "__main__":
-    control = ControlLogic()
-    while True:
-        pass
