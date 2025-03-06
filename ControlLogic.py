@@ -58,15 +58,21 @@ class ControlLogic:
         image_response = self.openai.general_visual_aid("image.jpg")
         if image_response is None:
             # Process locally
-            pass
+            with open("local_processing.txt", "w") as f_obj:
+                f_obj.write("Local")
+            while os.exists("/home/edwartiu/SightGuide/image.jpg"):
+                pass
+            with open("local_processing.txt", "w") as f_obj:
+                f_obj.write("Remote")
+            os.system("usr/bin/mpg123 " + self.path + "audio/speech.mp3")
+            self.set_state(ControlState.Idle)
         else: 
             speech_response = self.openai.generate_audio(image_response)
-            if speech_response is None:
-                # Process locally
-                pass
-            else:
-                os.system("usr/bin/mpg123 " + self.path + "audio/speech.mp3")
-                self.set_state(ControlState.Idle)
+            #if speech_response is None:
+            #    pass
+            
+        os.system("usr/bin/mpg123 " + self.path + "audio/speech.mp3")
+        self.set_state(ControlState.Idle)
 
     def process_object_detection(self):
         pass
