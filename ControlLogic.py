@@ -120,30 +120,28 @@ class ControlLogic:
             print("Error: pigpio daemon is not running.")
             exit(1)
         
-        some_condition = True #CHANGE
-        while some_condition:
-            for i in range(N):
-                # Update distance data
-                for j in range(N-1):
-                    distances[i][j] = distances[i][j+1]
+        for i in range(N):
+            # Update distance data
+            for j in range(N-1):
+                distances[i][j] = distances[i][j+1]
 
-                distances[i][N] = sensor_list[i].distance * 100  # Convert to cm
-                print(f"Sensor {i}: {distances[i][N]:.2f} cm")
+            distances[i][N] = sensor_list[i].distance * 100  # Convert to cm
+            print(f"Sensor {i}: {distances[i][N]:.2f} cm")
 
-                sorted_distances = sorted(distances[i]) # Sort the distance data to retrieve median
-                distance = sorted_distances[2]
+            sorted_distances = sorted(distances[i]) # Sort the distance data to retrieve median
+            distance = sorted_distances[2]
 
-                delta = abs(distance - curr_dist[i])
-                
-                if 0 <= distance <= MAX_DISTANCE:
-                    speed = int(0.25 * (255 - (0.65 * distance / MAX_DISTANCE * 255)))
-                    pi.set_PWM_dutycycle(motor_pins[i], speed)
-                    # vibrate_array[i] = True
-                    # vib_counter[i] = 0
-                else:
-                    pi.set_PWM_dutycycle(motor_pins[i], 0)
-                
-                curr_dist[i] = distance
-            time.sleep(0.05)
-        pass
+            delta = abs(distance - curr_dist[i])
+            
+            if 0 <= distance <= MAX_DISTANCE:
+                speed = int(0.25 * (255 - (0.65 * distance / MAX_DISTANCE * 255)))
+                pi.set_PWM_dutycycle(motor_pins[i], speed)
+                # vibrate_array[i] = True
+                # vib_counter[i] = 0
+            else:
+                pi.set_PWM_dutycycle(motor_pins[i], 0)
+            
+            curr_dist[i] = distance
+        time.sleep(0.05)
+        
 
