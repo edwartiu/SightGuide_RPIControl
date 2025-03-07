@@ -60,8 +60,8 @@ class ControlLogic:
         self.camera = Picamera2()
         self.camera.start_preview(Preview.NULL)
 
-        self.state_button = Button(state_button, bounce_time = 0.1)
-        self.visual_aid_button = Button(visual_aid_button, bounce_time = 0.1)
+        self.state_button = Button(state_button)
+        self.visual_aid_button = Button(visual_aid_button)
 
         self.setup_button()
         if not pi.connected:
@@ -93,7 +93,6 @@ class ControlLogic:
     def set_state(self, state: ControlState):
         os.system("/usr/bin/mpg123 " + self.path + "/audio/" + state.name + ".mp3")
         self.state = state
-        self.process()
 
     def get_state(self):
         return self.state
@@ -114,8 +113,7 @@ class ControlLogic:
         if self.camera.started:
             print("stopping camera before reconfiguring")
             self.camera.stop()
-
-        self.camera.allocator.cleanup()
+            time.sleep(0.1)
 
         config = self.camera.create_still_configuration(main = {"size": (1920, 1080)})
         
@@ -127,7 +125,6 @@ class ControlLogic:
         self.camera.capture_file("image.jpg")
         self.camera.stop() 
         print("Image captured and camera stopped")
-        self.camera.allocator.cleanup()
         
         image_response = self.openai.general_visual_aid("image.jpg")
         if image_response is None:
