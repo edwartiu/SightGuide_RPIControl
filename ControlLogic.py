@@ -28,11 +28,11 @@ factory = PiGPIOFactory()
 
 # Initialize ultrasonic sensors
 sensor_list = [
-    DistanceSensor(echo=ECHO1, trigger=TRIG1, max_distance=MAX_DISTANCE/100, pin_factory=factory),
-    DistanceSensor(echo=ECHO2, trigger=TRIG2, max_distance=MAX_DISTANCE/100, pin_factory=factory),
-    DistanceSensor(echo=ECHO3, trigger=TRIG3, max_distance=MAX_DISTANCE/100, pin_factory=factory),
-    DistanceSensor(echo=ECHO4, trigger=TRIG4, max_distance=MAX_DISTANCE/100, pin_factory=factory),
-    DistanceSensor(echo=ECHO5, trigger=TRIG5, max_distance=MAX_DISTANCE/100, pin_factory=factory)
+    DistanceSensor(echo=ECHO1, trigger=TRIG1, max_distance=500, pin_factory=factory),
+    DistanceSensor(echo=ECHO2, trigger=TRIG2, max_distance=500, pin_factory=factory),
+    DistanceSensor(echo=ECHO3, trigger=TRIG3, max_distance=500, pin_factory=factory),
+    DistanceSensor(echo=ECHO4, trigger=TRIG4, max_distance=500, pin_factory=factory),
+    DistanceSensor(echo=ECHO5, trigger=TRIG5, max_distance=500, pin_factory=factory)
 ]
 
 motor_pins = [MOTORL, MOTORLM, MOTORM, MOTORRM, MOTORR]
@@ -60,16 +60,18 @@ class ControlLogic:
         self.camera = Picamera2()
         self.camera.start_preview(Preview.NULL)
 
-        self.state_button = Button(state_button)
-        self.visual_aid_button = Button(visual_aid_button)
+        self.state_button = Button(state_button, bounce_time=0.1)
+        self.visual_aid_button = Button(visual_aid_button, bounce_time=0.1)
+        self.cooldown = False
+        self.prev_state = ControlState.Idle
 
-        self.setup_button()
         if not pi.connected:
             print("Error: pigpio daemon is not running.")
             exit(1)
         for pin in motor_pins:
             pi.set_PWM_frequency(pin, 1000)  # Set PWM frequency
             pi.set_PWM_dutycycle(pin, 0)  # Start with 0% duty cycle
+        self.setup_button()
 
     def setup_button(self):
         self.state_button.when_pressed = self.toggle_state
@@ -78,14 +80,16 @@ class ControlLogic:
 
     def toggle_state(self):
         print("Toggle button pressed")
-        with lock: 
-            if self.state == ControlState.Idle:
-                self.set_state(ControlState.ObjectDetection)
-            elif self.state == ControlState.ObjectDetection:
-                self.set_state(ControlState.Idle)
+        if (not self.cooldown):
+            with lock: 
+                if self.state == ControlState.Idle:
+                    self.set_state(ControlState.ObjectDetection)
+                elif self.state == ControlState.ObjectDetection:
+                    self.set_state(ControlState.Idle)
 
     def visual_aid(self):
         print("Visual aid button pressed") 
+        self.set_state(ControlState.VisualAid)
         with lock:
             if not self.camera.started:
                 self.set_state(ControlState.VisualAid)
@@ -98,7 +102,10 @@ class ControlLogic:
         return self.state
     
     def process(self):
+        self.cooldown = False
+
         if self.state == ControlState.Idle:
+            self.prev_state = ControlState.Idle
             print("Idle")
 
         elif self.state == ControlState.VisualAid:
@@ -143,35 +150,56 @@ class ControlLogic:
             #    pass
             
         os.system("/usr/bin/mpg123 " + self.path + "/audio/speech.mp3")
-        self.set_state(ControlState.Idle)
+        self.set_state(self.prev_state)
 
     def process_object_detection(self):
-        #if not pi.connected:
-        #    print("Error: pigpio daemon is not running.")
-        #    exit(1)
+        time.sleep(0.2)
+        print("Obstacle detection activated")
+
+        visual_aid = False
+        state = False
+        while(not visual_aid and not state):
+            for i in range(N):
+                
+                if (self.visual_aid_button.is_pressed):
+                    visual_aid = True
+                    break
+                if (self.state_button.is_pressed):
+                    state = True
+                    break
+
+                # Update distance data
+                for j in range(N-1):
+                    distances[i][j] = distances[i][j+1]
+
+                distances[i][N] = sensor_list[i].distance * 100  # Convert to cm
+                #print(f"Sensor {i}: {distances[i][N]:.2f} cm")
+
+                sorted_distances = sorted(distances[i]) # Sort the distance data to retrieve median
+                distance = sorted_distances[2]
+
+                delta = abs(distance - curr_dist[i])
+                
+                if 0 <= distance <= MAX_DISTANCE:
+                    speed = int(0.25 * (255 - (0.65 * distance / MAX_DISTANCE * 255)))
+                    pi.set_PWM_dutycycle(motor_pins[i], speed)
+                    # vibrate_array[i] = True
+                    # vib_counter[i] = 0
+                else:
+                    pi.set_PWM_dutycycle(motor_pins[i], 0)
+                
+                curr_dist[i] = distance
+                time.sleep(0.01)
         
-        for i in range(N):
-            # Update distance data
-            for j in range(N-1):
-                distances[i][j] = distances[i][j+1]
+        for pin in motor_pins:
+            pi.set_PWM_dutycycle(pin, 0)  
 
-            distances[i][N] = sensor_list[i].distance * 100  # Convert to cm
-            print(f"Sensor {i}: {distances[i][N]:.2f} cm")
-
-            sorted_distances = sorted(distances[i]) # Sort the distance data to retrieve median
-            distance = sorted_distances[2]
-
-            delta = abs(distance - curr_dist[i])
-            
-            if 0 <= distance <= MAX_DISTANCE:
-                speed = int(0.25 * (255 - (0.65 * distance / MAX_DISTANCE * 255)))
-                pi.set_PWM_dutycycle(motor_pins[i], speed)
-                # vibrate_array[i] = True
-                # vib_counter[i] = 0
-            else:
-                pi.set_PWM_dutycycle(motor_pins[i], 0)
-            
-            curr_dist[i] = distance
-        time.sleep(0.05)
-        
+        if (state):
+            self.set_state(ControlState.Idle)
+            print("set to idle")
+            self.cooldown = True
+        elif (visual_aid):
+            self.set_state(ControlState.VisualAid)
+            self.prev_state = ControlState.ObjectDetection
+            print("set to visual aid")
 
