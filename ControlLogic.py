@@ -1,12 +1,13 @@
 import os
 from enum import Enum
 from OpenAI_Client import OpenAIClient
-from picamera2 import Picamera2
+from picamera2 import Picamera2, Preview
 from gpiozero import Button
 
 import time
 import pigpio
-from gpiozero import DistanceSensor
+from gpiozero import DistanceSensor 
+from gpiozero.pins.pigpio import PiGPIOFactory
 
 # Constants
 MAX_DISTANCE = 220  
@@ -22,18 +23,20 @@ TRIG5, ECHO5 = 13, 26
 MOTORL, MOTORLM, MOTORM, MOTORRM, MOTORR = 14, 15, 23, 24, 25  # PWM motor control pins
 
 
-pi = pigpio.pi()
+factory = PiGPIOFactory()
 
 # Initialize ultrasonic sensors
 sensor_list = [
-    DistanceSensor(echo=ECHO1, trigger=TRIG1, max_distance=MAX_DISTANCE/100),
-    DistanceSensor(echo=ECHO2, trigger=TRIG2, max_distance=MAX_DISTANCE/100),
-    DistanceSensor(echo=ECHO3, trigger=TRIG3, max_distance=MAX_DISTANCE/100),
-    DistanceSensor(echo=ECHO4, trigger=TRIG4, max_distance=MAX_DISTANCE/100),
-    DistanceSensor(echo=ECHO5, trigger=TRIG5, max_distance=MAX_DISTANCE/100),
+    DistanceSensor(echo=ECHO1, trigger=TRIG1, max_distance=MAX_DISTANCE/100, pin_factory=factory),
+    DistanceSensor(echo=ECHO2, trigger=TRIG2, max_distance=MAX_DISTANCE/100, pin_factory=factory),
+    DistanceSensor(echo=ECHO3, trigger=TRIG3, max_distance=MAX_DISTANCE/100, pin_factory=factory),
+    DistanceSensor(echo=ECHO4, trigger=TRIG4, max_distance=MAX_DISTANCE/100, pin_factory=factory),
+    DistanceSensor(echo=ECHO5, trigger=TRIG5, max_distance=MAX_DISTANCE/100, pin_factory=factory)
 ]
 
 motor_pins = [MOTORL, MOTORLM, MOTORM, MOTORRM, MOTORR]
+
+pi = pigpio.pi()
 
 # Distance data storage
 N = len(sensor_list)
@@ -43,7 +46,7 @@ curr_dist = [0] * N
 class ControlState(Enum):
     Idle = 0
     ObjectDetection = 1
-    VisiualAid = 2
+    VisualAid = 2
 
 
 class ControlLogic:
@@ -51,9 +54,12 @@ class ControlLogic:
         self.state = ControlState.Idle
         self.path = project_path
         self.openai = OpenAIClient()
-        self.camera = PiCamera2()
-        self.state_button = Button(state_button)
-        self.visual_aid_button = Button(visual_aid_button)
+
+        self.camera = Picamera2()
+        self.camera.start_preview(Preview.NULL)
+
+        self.state_button = Button(state_button, bounce_time = 0.5)
+        self.visual_aid_button = Button(visual_aid_button, bounce_time = 0.5)
 
         self.setup_button()
         if not pi.connected:
@@ -64,18 +70,24 @@ class ControlLogic:
             pi.set_PWM_dutycycle(pin, 0)  # Start with 0% duty cycle
 
     def setup_button(self):
-        self.state_button.when_pressed = self.toggle_state()
-        self.visual_aid_button.when_pressed = self.set_state(ControlState.VisiualAid)
+        self.state_button.when_pressed = self.toggle_state
+        self.visual_aid_button.when_pressed = self.visual_aid
 
 
     def toggle_state(self):
+        print("Toggle button pressed")
         if self.state == ControlState.Idle:
             self.set_state(ControlState.ObjectDetection)
         elif self.state == ControlState.ObjectDetection:
             self.set_state(ControlState.Idle)
+
+    def visual_aid(self):
+        print("Visual aid button pressed") 
+        if not self.camera.started:
+            self.set_state(ControlState.VisualAid)
     
     def set_state(self, state: ControlState):
-        os.system("usr/bin/mpg123 " + self.path + "/audio/" + state.name + ".mp3")
+        os.system("/usr/bin/mpg123 " + self.path + "/audio/" + state.name + ".mp3")
         self.state = state
         self.process()
 
@@ -86,7 +98,7 @@ class ControlLogic:
         if self.state == ControlState.Idle:
             print("Idle")
 
-        elif self.state == ControlState.VisiualAid:
+        elif self.state == ControlState.VisualAid:
             print("Visual Aid")
             self.process_general_visual_aid()
         
@@ -95,7 +107,24 @@ class ControlLogic:
             self.process_object_detection()
 
     def process_general_visual_aid(self):
-        self.camera.start_and_capture_file("image.jpg")
+        if self.camera.started:
+            print("stopping camera before reconfiguring")
+            self.camera.stop()
+
+        self.camera.allocator.cleanup()
+
+        config = self.camera.create_still_configuration(main = {"size": (1920, 1080)})
+        
+        print("configuiring camera")
+        self.camera.configure(config)
+
+        print("Starting camera")
+        self.camera.start()
+        self.camera.capture_file("image.jpg")
+        self.camera.stop() 
+        print("Image captured and camera stopped")
+        self.camera.allocator.cleanup()
+        
         image_response = self.openai.general_visual_aid("image.jpg")
         if image_response is None:
             # Process locally
@@ -105,20 +134,20 @@ class ControlLogic:
                 pass
             with open("local_processing.txt", "w") as f_obj:
                 f_obj.write("Remote")
-            os.system("usr/bin/mpg123 " + self.path + "audio/speech.mp3")
+            os.system("/usr/bin/mpg123 " + self.path + "/audio/speech.mp3")
             self.set_state(ControlState.Idle)
         else: 
             speech_response = self.openai.generate_audio(image_response)
             #if speech_response is None:
             #    pass
             
-        os.system("usr/bin/mpg123 " + self.path + "audio/speech.mp3")
+        os.system("/usr/bin/mpg123 " + self.path + "/audio/speech.mp3")
         self.set_state(ControlState.Idle)
 
     def process_object_detection(self):
-        if not pi.connected:
-            print("Error: pigpio daemon is not running.")
-            exit(1)
+        #if not pi.connected:
+        #    print("Error: pigpio daemon is not running.")
+        #    exit(1)
         
         for i in range(N):
             # Update distance data
