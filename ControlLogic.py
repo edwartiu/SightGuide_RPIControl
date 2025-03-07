@@ -3,6 +3,7 @@ from enum import Enum
 from OpenAI_Client import OpenAIClient
 from picamera2 import Picamera2, Preview
 from gpiozero import Button
+import threading
 
 import time
 import pigpio
@@ -37,6 +38,7 @@ sensor_list = [
 motor_pins = [MOTORL, MOTORLM, MOTORM, MOTORRM, MOTORR]
 
 pi = pigpio.pi()
+lock = threading.Lock()
 
 # Distance data storage
 N = len(sensor_list)
@@ -58,8 +60,8 @@ class ControlLogic:
         self.camera = Picamera2()
         self.camera.start_preview(Preview.NULL)
 
-        self.state_button = Button(state_button, bounce_time = 0.5)
-        self.visual_aid_button = Button(visual_aid_button, bounce_time = 0.5)
+        self.state_button = Button(state_button, bounce_time = 0.1)
+        self.visual_aid_button = Button(visual_aid_button, bounce_time = 0.1)
 
         self.setup_button()
         if not pi.connected:
@@ -76,15 +78,17 @@ class ControlLogic:
 
     def toggle_state(self):
         print("Toggle button pressed")
-        if self.state == ControlState.Idle:
-            self.set_state(ControlState.ObjectDetection)
-        elif self.state == ControlState.ObjectDetection:
-            self.set_state(ControlState.Idle)
+        with lock: 
+            if self.state == ControlState.Idle:
+                self.set_state(ControlState.ObjectDetection)
+            elif self.state == ControlState.ObjectDetection:
+                self.set_state(ControlState.Idle)
 
     def visual_aid(self):
         print("Visual aid button pressed") 
-        if not self.camera.started:
-            self.set_state(ControlState.VisualAid)
+        with lock:
+            if not self.camera.started:
+                self.set_state(ControlState.VisualAid)
     
     def set_state(self, state: ControlState):
         os.system("/usr/bin/mpg123 " + self.path + "/audio/" + state.name + ".mp3")
