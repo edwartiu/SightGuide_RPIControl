@@ -1,6 +1,7 @@
 import os
 from enum import Enum
 from OpenAI_Client import OpenAIClient
+from PIL import Image
 from picamera2 import Picamera2, Preview
 from gpiozero import Button
 import threading
@@ -132,6 +133,11 @@ class ControlLogic:
         self.camera.capture_file("image.jpg")
         self.camera.stop() 
         print("Image captured and camera stopped")
+
+        # image rotation
+        img = Image.open("./image.jpg")
+        rotated_img = img.rotate(180)
+        rotate_img.save("image.jpg")
         
         image_response = self.openai.general_visual_aid("image.jpg")
         if image_response is None:
