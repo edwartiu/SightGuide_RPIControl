@@ -37,7 +37,7 @@ class OpenAIClient:
             response = self.client.chat.completions.create(
                 model="gpt-4o-mini",
                 messages=[
-                    {"role": "system", "content": "You are a helpful assistant."},
+                    {"role": "system", "content": "You are a helpful assistant for a visually impaired user. Can you also limit the text to 20 words please!"},
                     {
                         "role": "user",
                         "content": prompt
