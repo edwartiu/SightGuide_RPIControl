@@ -93,7 +93,7 @@ class ControlLogic:
 
 
     def listen_visual_aid_button(self):
-        print("Listening for visual aid button")
+        # print("Listening for visual aid button")
         if self.visual_aid_button.is_pressed:
             print("-----------------------------Held button---------------------------------------")
             time.sleep(0.1)
@@ -105,7 +105,7 @@ class ControlLogic:
 
 
     def listen_state_button(self):
-        print("Listening for state button")
+        #print("Listening for state button")
         if self.state_button.is_pressed:
             time.sleep(0.01)
             if self.state_button.is_pressed:
@@ -153,7 +153,7 @@ class ControlLogic:
             
         if self.state == ControlState.Idle:
             self.prev_state = ControlState.Idle
-            print("Idle")
+            #print("Idle")
 
         elif self.state == ControlState.VisualAid:
             print("Visual Aid")
@@ -176,6 +176,7 @@ class ControlLogic:
 
         print("Starting camera")
         self.camera.start()
+        time.sleep(1)
         self.camera.capture_file("image.jpg")
         self.camera.stop() 
         print("Image captured and camera stopped")
@@ -276,4 +277,3 @@ class ControlLogic:
             if self.listen_state_button():
                 self.toggle_state()
             time.sleep(0.005)
-
