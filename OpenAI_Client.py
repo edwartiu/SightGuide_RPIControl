@@ -59,11 +59,12 @@ class OpenAIClient:
             response = self.client.chat.completions.create(
                 model="gpt-4o-mini",
                 messages=[
-                    {"role": "system", "content": "You are an assistant for a visually impaired user."},
+                    {"role": "system", "content": "You are an assistant for a visually impaired user. Your job is to help a visually impaired user get around and know what's in their surrounding."},
                     {
                     "role": "user",
                     "content": [
-                        {"type": "text", "text": "Can you give a general description of what is in front of me please."},
+                        {"type": "text", "text": "Can you give a general description of what is in front of me please. It's also important to point out things that can pose danger to me, "
+                        "You should also point things out that a blind person might wanna know the direction of, such as doorways and handicap accessible ramps (Only if its in the image). Keep it under 60 words"},
                         {
                         "type": "image_url",
                         "image_url": {
