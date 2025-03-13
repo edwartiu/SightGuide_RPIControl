@@ -27,30 +27,28 @@ TRIG5, ECHO5 = 13, 26
 MOTORL, MOTORLM, MOTORM, MOTORRM, MOTORR = 14, 15, 23, 24, 25  # PWM motor control pins
 
 
-#factory = PiGPIOFactory()
-#print("PiGPIOFacotry: " )
-#print(type(factory))
+factory = PiGPIOFactory()
+print("PiGPIOFacotry: " )
+print(type(factory))
 
 # Initialize ultrasonic sensors
-#sensor_list = [
-#    DistanceSensor(echo=ECHO1, trigger=TRIG1, max_distance=500), pin_factory=factory),
-#    DistanceSensor(echo=ECHO2, trigger=TRIG2, max_distance=500), pin_factory=factory),
-#    DistanceSensor(echo=ECHO3, trigger=TRIG3, max_distance=500), pin_factory=factory),
-#    DistanceSensor(echo=ECHO4, trigger=TRIG4, max_distance=500), pin_factory=factory),
-#    DistanceSensor(echo=ECHO5, trigger=TRIG5, max_distance=500), pin_factory=factory)
-#]
+sensor_list = [ DistanceSensor(echo=ECHO1, trigger=TRIG1, max_distance=500, pin_factory=factory), 
+DistanceSensor(echo=ECHO2, trigger=TRIG2, max_distance=500, pin_factory=factory),
+DistanceSensor(echo=ECHO3, trigger=TRIG3, max_distance=500, pin_factory=factory),
+DistanceSensor(echo=ECHO4, trigger=TRIG4, max_distance=500, pin_factory=factory),
+DistanceSensor(echo=ECHO5, trigger=TRIG5, max_distance=500, pin_factory=factory)]
 
 
 
-#motor_pins = [MOTORL, MOTORLM, MOTORM, MOTORRM, MOTORR]
+motor_pins = [MOTORL, MOTORLM, MOTORM, MOTORRM, MOTORR]
 
-#pi = pigpio.pi()
-#lock = threading.Lock()
+pi = pigpio.pi()
+lock = threading.Lock()
 
 # Distance data storage
-#N = len(sensor_list)
-#distances = [[0] * 5 for _ in range(N)]
-#curr_dist = [0] * N
+N = len(sensor_list)
+distances = [[0] * 5 for _ in range(N)]
+curr_dist = [0] * N
 
 class ControlState(Enum):
     Idle = 0
@@ -109,7 +107,7 @@ class ControlLogic:
     def listen_state_button(self):
         print("Listening for state button")
         if self.state_button.is_pressed:
-            sleep(0.01)
+            time.sleep(0.01)
             if self.state_button.is_pressed:
                 return True
 
@@ -236,13 +234,13 @@ class ControlLogic:
                 for j in range(N-1):
                     distances[i][j] = distances[i][j+1]
 
-                distances[i][N] = sensor_list[i].distance * 100  # Convert to cm
+                distances[i][N-1] = sensor_list[i].distance * 100  # Convert to cm
                 #print(f"Sensor {i}: {distances[i][N]:.2f} cm")
 
                 sorted_distances = sorted(distances[i]) # Sort the distance data to retrieve median
                 distance = sorted_distances[2]
 
-                delta = abs(distance - curr_dist[i])
+                # delta = abs(distance - curr_dist[i])
                 
                 if 0 <= distance <= MAX_DISTANCE:
                     speed = int(0.25 * (255 - (0.65 * distance / MAX_DISTANCE * 255)))
@@ -266,6 +264,7 @@ class ControlLogic:
             self.set_state(ControlState.VisualAid)
             self.prev_state = ControlState.ObjectDetection
             print("set to visual aid")
+        time.sleep(0.1)
 
 
     def run(self):
@@ -276,4 +275,5 @@ class ControlLogic:
                 continue
             if self.listen_state_button():
                 self.toggle_state()
+            time.sleep(0.005)
 

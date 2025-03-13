@@ -5,8 +5,8 @@ import threading
 
 STATE_BUTTON = 2
 VISUAL_AID_BUTTON = 3
-PROJECT_PATH = "/home/edwartiu/SightGuide"
-#PROJECT_PATH = "/home/lndnf/Documents/SightGuide_RPIControl"
+#PROJECT_PATH = "/home/edwartiu/SightGuide"
+PROJECT_PATH = "/home/lndnf/Documents/SightGuide_RPIControl"
 
 lock = threading.Lock()
 
